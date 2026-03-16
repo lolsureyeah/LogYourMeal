@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install @anthropic-ai/sdk)",
+      "WebSearch",
+      "Bash(git init:*)",
+      "Bash(git remote:*)"
+    ]
+  }
+}

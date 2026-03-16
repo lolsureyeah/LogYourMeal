@@ -1,0 +1,38 @@
+# LogYourMeal — UI Design Reference
+
+## HOW TO USE THIS FILE
+Paste a Dribbble or design reference URL below, then in Anti-Gravity attach the
+image to your agent message saying:
+"Use this image as the visual design reference for all UI components in LogYourMeal.
+Match the colour palette, typography feel, and spacing to this reference."
+
+## PASTE YOUR REFERENCE URL HERE:
+{{DESIGN_REFERENCE_URL}}
+
+## CURRENT DESIGN DIRECTION (APPLE iOS / HEALTH APP AESTHETIC)
+**Style:** Ultra-clean, smooth, and premium. Strictly mimic Apple's Human Interface Guidelines (resembling the native iOS Health app). Focus on generous whitespace, removing unnecessary borders, and using typography to establish hierarchy.
+
+**Color Palette (iOS Light Mode):**
+- App Background: #F2F2F7 (Apple's standard system background gray)
+- Card Background: #FFFFFF (Pure white)
+- Primary Accent: #000000 (Pure black for high-contrast primary buttons)
+- Secondary Accent: #007AFF (Apple standard interactive blue)
+- Success: #34C759 (Apple Health Green for hitting calorie/macro goals)
+- Warning: #FF9500 (Apple system orange)
+- Danger: #FF3B30 (Apple system red for over limits)
+- Text Primary: #000000 (Pure black for ultimate readability)
+- Text Secondary: #8E8E93 (Apple system muted gray for labels)
+- Subtle Dividers: rgba(0, 0, 0, 0.08) (Hairline thin separators)
+
+**Typography (San Francisco Style):**
+- Font Stack: `-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif`. 
+- Tabular Data: MUST use `font-variant-numeric: tabular-nums` for all macros, calories, and times so the numbers align perfectly and don't "jump" when changing.
+- Hero Numbers (Macros/Calories): 32px or 40px, Font Weight 700 (Bold), slightly tight letter spacing (-0.5px).
+- Base Body Text: 17px, Font Weight 400 (Regular).
+- Labels/Secondary Text: 13px or 15px, Font Weight 500 (Medium).
+
+**Geometry, Spacing & Depth (The "Apple Feel"):**
+- Corner Radius: 20px or 24px for main layout cards (smooth, large radii). 10px or 12px for buttons and inputs.
+- Shadows: NO harsh drop shadows. Cards should have an incredibly soft, diffuse shadow: `box-shadow: 0 4px 24px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)`.
+- Spacing: Very breathable. Use 20px or 24px padding inside main cards. Maintain a strict 16px gap between distinct layout sections.
+- Interactions: Interactive elements should feel tactile. Buttons should have a gentle active state (`transform: scale(0.97)` and `opacity: 0.8` on click).

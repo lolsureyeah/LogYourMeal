@@ -1,0 +1,44 @@
+﻿node : file:///C:/Users/shour/
+Downloads/Antigravity-Workspac
+e/FuelOS/execution/backend/ind
+ex.js:136
+At line:1 char:1
++ node index.js > output.log 
+2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~
+    + CategoryInfo          : 
+    NotSpecified: (file:///C  
+  :/User...nd/index.js:136:   
+ String) [], RemoteExcepti    
+on
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+app.post(ΓÇ£/api/coachΓÇ¥, 
+requireAuth, async (req, res) 
+=> {
+         
+
+SyntaxError: Invalid or 
+unexpected token
+    at 
+compileSourceTextModule (node:
+internal/modules/esm/utils:338
+:16)
+    at 
+ModuleLoader.moduleStrategy (n
+ode:internal/modules/esm/trans
+lators:102:18)
+    at #translate (node:intern
+al/modules/esm/loader:468:12)
+    at 
+ModuleLoader.loadAndTranslate 
+(node:internal/modules/esm/loa
+der:515:27)
+    at async ModuleJob._link (
+node:internal/modules/esm/modu
+le_job:115:19)
+
+Node.js v22.14.0
+

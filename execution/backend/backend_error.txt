@@ -1,0 +1,12 @@
+file:///C:/Users/shour/Downloads/Antigravity-Workspace/FuelOS/execution/backend/index.js:81
+In Command Prompt inside `execution / backend`:
+                          ^^^^^^^^^
+
+SyntaxError: Unexpected identifier 'execution'
+    at compileSourceTextModule (node:internal/modules/esm/utils:338:16)
+    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:102:18)
+    at #translate (node:internal/modules/esm/loader:468:12)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:515:27)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:115:19)
+
+Node.js v22.14.0

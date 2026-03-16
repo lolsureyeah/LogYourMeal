@@ -1,0 +1,12 @@
+node_modules/
+.env
+dist/
+.firebase/
+*.local
+.DS_Store
+serviceAccount.json
+service-account.json
+execution/backend/.env
+execution/frontend/.env
+execution/backend/serviceAccount.json
+execution/backend/service-account.json

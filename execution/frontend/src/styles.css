@@ -1,0 +1,92 @@
+/* execution/frontend/src/styles.css */
+/* Apple iOS Health App Aesthetic — Light + Dark Mode */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --input-bg: #F2F2F7;
+  --primary: #000000;
+  --accent: #007AFF;
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger: #FF3B30;
+  --text-primary: #000000;
+  --text-secondary: #8E8E93;
+  --divider: rgba(0, 0, 0, 0.08);
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  --radius-card: 20px;
+  --radius-btn: 12px;
+  --radius-input: 12px;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+}
+
+[data-theme="dark"] {
+  --bg: #000000;
+  --card: #1C1C1E;
+  --input-bg: #2C2C2E;
+  --primary: #FFFFFF;
+  --accent: #0A84FF;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E8E93;
+  --divider: rgba(255, 255, 255, 0.08);
+  --card-shadow: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+input, textarea, select {
+  color: var(--text-primary) !important;
+  background: var(--input-bg) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  font-family: var(--font);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-secondary) !important;
+  -webkit-text-fill-color: var(--text-secondary) !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary);
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Scrollbar — subtle */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #C7C7CC; border-radius: 3px; }
