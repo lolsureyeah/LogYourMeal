@@ -1,24 +1,6 @@
 import { useState } from "react";
 import { calcGoals } from "../utils/calculations";
-
-// Hardcoded theme to avoid useTheme dependency as requested by USER
-const T = {
-  bg:              "#F2F2F7",
-  card:            "#FFFFFF",
-  cardShadow:      "0 4px 24px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)",
-  text:            "#000000",
-  textSec:         "#8E8E93",
-  border:          "#E5E5EA",
-  inputBg:         "#F2F2F7",
-  accent:          "#007AFF",
-  divider:         "rgba(0,0,0,0.06)",
-  btnPrimary:      "#000000",
-  btnPrimaryText:  "#FFFFFF",
-  chipActive:      "#000000",
-  chipActiveText:  "#FFFFFF",
-  chipInactive:    "#F2F2F7",
-  chipInactiveText:"#8E8E93",
-};
+import { useTheme } from "../theme";
 
 const MACRO_FIELDS  = ["customProtein", "customCarbs", "customFat"];
 const MACRO_MULT    = { customProtein: 4, customCarbs: 4, customFat: 9 };
@@ -26,6 +8,7 @@ const MACRO_LABEL   = { customProtein: "Protein (g)", customCarbs: "Carbs (g)", 
 const MACRO_LIVEKEY = { customProtein: "protein",     customCarbs: "carbs",     customFat: "fat" };
 
 export default function Onboarding({ initialStats, onComplete }) {
+  const { T } = useTheme();
   const [stats, setStats] = useState(initialStats || {
     name: "", age: "", weight: "", height: "",
     bf: "", sex: "male", goal: "maintain", targetWeight: "",
@@ -38,13 +21,15 @@ export default function Onboarding({ initialStats, onComplete }) {
   const [touchedOrder, setTouchedOrder] = useState([]);
   // lockedMacro: the one macro that is always auto-calculated; user can change via lock icon
   const [lockedMacro, setLockedMacro] = useState("customFat");
+  // useCalDefault: true = use AI-estimated calories, false = enter custom calories
+  const [useCalDefault, setUseCalDefault] = useState(!(initialStats?.customCal));
 
   const set = (k, v) => setStats(s => ({ ...s, [k]: v }));
 
   const liveGoals = calcGoals(stats);
 
   // ── Macro derived state ──────────────────────────────────────────────────────
-  const customCalVal  = parseFloat(stats.customCal) || 0;
+  const customCalVal  = useCalDefault ? 0 : (parseFloat(stats.customCal) || 0);
   const calGoalEff    = customCalVal > 0 ? customCalVal : liveGoals.cal;
   const anyMacrosTouched = touchedOrder.length > 0;
 
@@ -217,9 +202,32 @@ export default function Onboarding({ initialStats, onComplete }) {
 
         {/* ── Daily Goals ─────────────────────────────────────────────────── */}
         <div style={{ borderTop: `1px solid ${T.divider}`, marginTop: 8, paddingTop: 20, marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 4 }}>Daily Goals</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>Daily Goals</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[{ v: true, l: "Default" }, { v: false, l: "Custom" }].map(opt => (
+                <button
+                  key={String(opt.v)}
+                  type="button"
+                  onClick={() => {
+                    setUseCalDefault(opt.v);
+                    if (opt.v) { set("customCal", ""); setTouchedOrder([]); }
+                  }}
+                  style={{
+                    padding: "5px 12px", borderRadius: 20, border: "none", cursor: "pointer",
+                    fontSize: 12, fontWeight: 600,
+                    background: useCalDefault === opt.v ? T.chipActive : T.chipInactive,
+                    color: useCalDefault === opt.v ? T.chipActiveText : T.chipInactiveText,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {opt.l}
+                </button>
+              ))}
+            </div>
+          </div>
           <div style={{ fontSize: 13, color: T.textSec, marginBottom: 16 }}>
-            Leave blank for AI calculation based on your stats. Enter calories only for a default macro split.
+            {useCalDefault ? "Using AI-calculated calories based on your stats." : "Enter your own calorie target and macro split."}
           </div>
 
           {/* Estimated target preview */}
@@ -234,49 +242,55 @@ export default function Onboarding({ initialStats, onComplete }) {
             </div>
           </div>
 
-          {/* Calories — anchor field */}
-          <label style={S.label}>Calories (kcal)</label>
-          <input
-            style={{
-              ...S.input,
-              marginBottom: calError ? 6 : 16,
-              borderColor: calError ? "#FF3B30" : T.border,
-            }}
-            type="number"
-            value={stats.customCal || ""}
-            onChange={e => set("customCal", e.target.value)}
-            placeholder={String(liveGoals.cal)}
-          />
-          {calError && (
-            <div style={{ fontSize: 12, color: "#FF3B30", marginBottom: 16, lineHeight: 1.5 }}>
-              Macros exceed calorie goal by {excessKcal}kcal — increase calories or reduce a macro
-            </div>
+          {/* Calories — anchor field (only shown in Custom mode) */}
+          {!useCalDefault && (
+            <>
+              <label style={S.label}>Calories (kcal)</label>
+              <input
+                style={{
+                  ...S.input,
+                  marginBottom: calError ? 6 : 16,
+                  borderColor: calError ? "#FF3B30" : T.border,
+                }}
+                type="number"
+                value={stats.customCal || ""}
+                onChange={e => set("customCal", e.target.value)}
+                placeholder={String(liveGoals.cal)}
+              />
+              {calError && (
+                <div style={{ fontSize: 12, color: "#FF3B30", marginBottom: 16, lineHeight: 1.5 }}>
+                  Macros exceed calorie goal by {excessKcal}kcal — increase calories or reduce a macro
+                </div>
+              )}
+            </>
           )}
 
-          {/* Auto-calculate chip row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-            <span style={{ fontSize: 13, color: T.textSec, fontWeight: 500, whiteSpace: "nowrap" }}>Auto-calculate:</span>
-            {MACRO_FIELDS.map(field => {
-              const label = { customProtein: "Protein", customCarbs: "Carbs", customFat: "Fat" }[field];
-              const active = field === lockedMacro;
-              return (
-                <button
-                  key={field}
-                  type="button"
-                  onClick={() => setLockedMacro(field)}
-                  style={{
-                    padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer",
-                    fontSize: 13, fontWeight: 600,
-                    background: active ? T.accent : T.chipInactive,
-                    color: active ? "#FFFFFF" : T.chipInactiveText,
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+          {/* Auto-calculate + macro grid — Custom mode only */}
+          {!useCalDefault && (
+            <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 13, color: T.textSec, fontWeight: 500, whiteSpace: "nowrap" }}>Auto-calculate:</span>
+              {MACRO_FIELDS.map(field => {
+                const label = { customProtein: "Protein", customCarbs: "Carbs", customFat: "Fat" }[field];
+                const active = field === lockedMacro;
+                return (
+                  <button
+                    key={field}
+                    type="button"
+                    onClick={() => setLockedMacro(field)}
+                    style={{
+                      padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer",
+                      fontSize: 13, fontWeight: 600,
+                      background: active ? T.accent : T.chipInactive,
+                      color: active ? "#FFFFFF" : T.chipInactiveText,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
           {/* Macro fields — 3-column grid, equal width */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
@@ -323,6 +337,8 @@ export default function Onboarding({ initialStats, onComplete }) {
               );
             })}
           </div>
+            </>
+          )}
         </div>
 
         <button
@@ -331,6 +347,9 @@ export default function Onboarding({ initialStats, onComplete }) {
           onClick={() => {
             if (calError) return;
             const out = { ...stats };
+
+            // In AI default mode, clear custom calorie override
+            if (useCalDefault) out.customCal = null;
 
             // Include the auto-calculated macro value
             if (anyMacrosTouched && autoValue !== null && autoValue > 0) {
