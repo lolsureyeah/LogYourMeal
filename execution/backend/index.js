@@ -5,12 +5,13 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import admin from "firebase-admin";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: join(__dirname, ".env") });
 
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, ".env") });
+import { applyNINVerification, buildNINVectorStore } from "./ninMatcher.js";
 
 // Load Firebase service account from file if provided, else fall back to applicationDefault
 let credential;
@@ -133,7 +134,8 @@ ${text}
     if (!Array.isArray(items) || items.length === 0) {
       return res.json({ items: [] });
     }
-    res.json({ items });
+    const verifiedItems = await applyNINVerification(items);
+    res.json({ items: verifiedItems });
   } catch (err) {
     console.error("parse-food error:", err.message);
     res.status(500).json({ error: "Parsing failed", items: [] });
@@ -254,4 +256,7 @@ Return ONLY valid JSON:
   }
 });
 
-app.listen(PORT, () => console.log(`LogYourMeal backend running on port ${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`LogYourMeal backend running on port ${PORT}`);
+  await buildNINVectorStore();
+});

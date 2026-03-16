@@ -1,5 +1,5 @@
 // execution/frontend/src/App.jsx
-// Root component — handles auth state, routing between screens, Firestore reads/writes
+// Root component - handles auth state, routing between screens, Firestore reads/writes
 
 import { useState, useEffect } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -208,7 +208,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Tabs — Apple segmented control */}
+            {/* Tabs - Apple segmented control */}
             <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 16px 0" }}>
               <div style={{ display: "flex", gap: 0, background: T.segBg, borderRadius: 10, padding: 3 }}>
                 {TABS.map(t => (

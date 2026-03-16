@@ -155,7 +155,7 @@ export default function Onboarding({ initialStats, onComplete }) {
           ))}
         </div>
 
-        <label style={S.label}>Body Fat % — optional</label>
+        <label style={S.label}>Body Fat % (optional)</label>
         <input style={S.input} type="number" step="0.5" value={stats.bf} onChange={e => set("bf", e.target.value)} placeholder={stats.sex === "female" ? "e.g. 25" : "e.g. 18"} />
         <div style={S.hint}>{bfHint}</div>
 
@@ -180,10 +180,10 @@ export default function Onboarding({ initialStats, onComplete }) {
           ))}
         </div>
 
-        <label style={S.label}>Target Weight (kg) — optional</label>
+        <label style={S.label}>Target Weight (kg, optional)</label>
         <input style={S.input} type="number" value={stats.targetWeight} onChange={e => set("targetWeight", e.target.value)} placeholder="e.g. 68" />
 
-        <label style={{ ...S.label, opacity: stats.goal === "maintain" ? 0.5 : 1 }}>Goal Date — optional</label>
+        <label style={{ ...S.label, opacity: stats.goal === "maintain" ? 0.5 : 1 }}>Goal Date (optional)</label>
         <input
           style={{ ...S.input, opacity: stats.goal === "maintain" ? 0.5 : 1, cursor: stats.goal === "maintain" ? "default" : "pointer" }}
           type="date"
@@ -259,7 +259,7 @@ export default function Onboarding({ initialStats, onComplete }) {
               />
               {calError && (
                 <div style={{ fontSize: 12, color: "#FF3B30", marginBottom: 16, lineHeight: 1.5 }}>
-                  Macros exceed calorie goal by {excessKcal}kcal — increase calories or reduce a macro
+                  Macros exceed calorie goal by {excessKcal}kcal. Increase calories or reduce a macro.
                 </div>
               )}
             </>

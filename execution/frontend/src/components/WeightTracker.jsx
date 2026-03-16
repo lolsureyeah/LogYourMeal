@@ -110,7 +110,7 @@ export default function WeightTracker({ user, stats }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: T.textSec, marginBottom: 6 }}>WEIGHT (kg)</div>
           <input style={inputS} type="number" step="0.1" value={entry.weight} onChange={e => setEntry(p => ({ ...p, weight: e.target.value }))} placeholder="72.4" />
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: T.textSec, marginBottom: 10, letterSpacing: 0.5 }}>MEASUREMENTS (cm) — optional</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.textSec, marginBottom: 10, letterSpacing: 0.5 }}>MEASUREMENTS (cm, optional)</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           {[["waist", "Waist"], ["chest", "Chest"], ["hips", "Hips"], ["arms", "Arms"]].map(([k, l]) => (
             <div key={k}>

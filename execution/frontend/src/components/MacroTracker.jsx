@@ -3,6 +3,7 @@ import { collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, where
 import { db, auth } from "../firebase";
 import HumanCharacter from "./HumanCharacter";
 import MacroBar from "./MacroBar";
+import NINInfo from "./NINInfo";
 import { calcGoals } from "../utils/calculations";
 import { useTheme } from "../theme";
 
@@ -17,6 +18,8 @@ export default function MacroTracker({ user, stats, appearance, onCharUpdate, an
   const [localMsg, setLocalMsg] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
+  const [expandedItem, setExpandedItem] = useState(null); // "entryId-itemIndex"
+  const [showNINInfo, setShowNINInfo] = useState(false);
 
   const goals = propGoals || calcGoals(stats);
 
@@ -58,7 +61,7 @@ useEffect(() => {
       const res = await fetch("/api/parse-food", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ text: foodInput }) });
       const data = await res.json();
       const items = data.items || [];
-      if (!items.length) { setLocalMsg("Couldn't recognise that food — try again!"); setParsing(false); return; }
+      if (!items.length) { setLocalMsg("Couldn't recognise that food. Try again!"); setParsing(false); return; }
 
       const now = new Date();
       const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
@@ -87,7 +90,7 @@ useEffect(() => {
           setMeals(p => [...p, ...items]);
         }
       } else {
-        // No match — create a new meal entry
+        // No match - create a new meal entry
         const entry = {
           label: newMealName,
           items,
@@ -161,6 +164,7 @@ useEffect(() => {
 
   return (
     <div style={{ paddingBottom: 80, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      {showNINInfo && <NINInfo onClose={() => setShowNINInfo(false)} />}
       {/* Character Card */}
       <div style={{ ...cardS, display: "flex", gap: 16, alignItems: "center", marginTop: 14 }}>
         <div style={{ flexShrink: 0 }}>
@@ -220,6 +224,7 @@ useEffect(() => {
           placeholder="What did you eat? (e.g. 2 eggs, 1 toast)"
         />
         <div style={{ fontSize: 12, color: T.textSec, marginBottom: 12 }}>Powered by AI · Log meals in any language</div>
+        {localMsg && <div style={{ fontSize: 13, color: "#FF3B30", marginBottom: 10 }}>{localMsg}</div>}
         <button
           style={{ width: "100%", background: T.btnPrimary, color: T.card, border: "none", borderRadius: 14, padding: 16, fontWeight: 700, fontSize: 17, cursor: "pointer" }}
           onClick={handleLog}
@@ -256,12 +261,54 @@ useEffect(() => {
               ) : (
                 <>
                   {/* Individual food items */}
-                  {(entry.items || []).map((it, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginTop: 4 }}>
-                      <span style={{ color: T.textSec }}>{it.grams}g {it.name}</span>
-                      <span style={{ fontWeight: 600, color: T.text }}>{Math.round(it.cal)} kcal</span>
-                    </div>
-                  ))}
+                  {(entry.items || []).map((it, i) => {
+                    const itemKey = `${entry.id}-${i}`;
+                    const isOpen = expandedItem === itemKey;
+                    return (
+                      <div key={i} style={{ marginTop: 4 }}>
+                        <div
+                          onClick={() => setExpandedItem(isOpen ? null : itemKey)}
+                          style={{ display: "flex", justifyContent: "space-between", fontSize: 14, cursor: "pointer", userSelect: "none" }}
+                        >
+                          <span style={{ color: T.textSec }}>{it.grams}g {it.name}</span>
+                          <span style={{ fontWeight: 600, color: T.text }}>{Math.round(it.cal)} kcal</span>
+                        </div>
+                        {isOpen && (
+                          <div style={{ background: T.inputBg, borderRadius: 10, padding: "10px 12px", marginTop: 6, fontSize: 13 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ color: T.textSec }}>Source</span>
+                              {it.source === "NIN-verified" ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setShowNINInfo(true); }}
+                                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 600, color: "#16a34a", fontSize: 13 }}
+                                >
+                                  NIN Certified ⓘ
+                                </button>
+                              ) : (
+                                <span style={{ fontWeight: 600, color: T.textSec }}>AI Estimated</span>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ color: T.textSec }}>Calories</span>
+                              <span style={{ fontWeight: 600, color: T.text }}>{Math.round(it.cal)} kcal</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ color: T.textSec }}>Protein</span>
+                              <span style={{ fontWeight: 600, color: "#FF9500" }}>{it.protein}g</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ color: T.textSec }}>Carbs</span>
+                              <span style={{ fontWeight: 600, color: T.accent }}>{it.carbs}g</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: T.textSec }}>Fat</span>
+                              <span style={{ fontWeight: 600, color: "#34C759" }}>{it.fat}g</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   {/* Total row with macro breakdown */}
                   {(() => {
                     const mealTotals = (entry.items || []).reduce((acc, it) => ({
