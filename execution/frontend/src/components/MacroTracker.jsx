@@ -1,11 +1,25 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, onSnapshot, query, where } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import HumanCharacter from "./HumanCharacter";
 import MacroBar from "./MacroBar";
 import NINInfo from "./NINInfo";
+import History from "./History";
+import SavedMeals from "./SavedMeals";
 import { calcGoals } from "../utils/calculations";
 import { useTheme } from "../theme";
+
+const DEFAULT_MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
+
+function buildSuggestions(todayLabels) {
+  const seen = new Set();
+  const result = [];
+  for (const n of [...DEFAULT_MEALS, ...todayLabels]) {
+    const k = n.toLowerCase();
+    if (!seen.has(k)) { seen.add(k); result.push(n); }
+  }
+  return result;
+}
 
 
 export default function MacroTracker({ user, stats, appearance, onCharUpdate, animChar, aiMsg, externalProgress, goals: propGoals, goalsSource }) {
@@ -16,10 +30,8 @@ export default function MacroTracker({ user, stats, appearance, onCharUpdate, an
   const [mealName, setMealName] = useState("");
   const [parsing, setParsing] = useState(false);
   const [localMsg, setLocalMsg] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editText, setEditText] = useState("");
-  const [expandedItem, setExpandedItem] = useState(null); // "entryId-itemIndex"
   const [showNINInfo, setShowNINInfo] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const goals = propGoals || calcGoals(stats);
 
@@ -109,6 +121,10 @@ useEffect(() => {
 
       setFoodInput(""); setMealName("");
 
+      const addedCal = items.reduce((sum, item) => sum + (item.cal || 0), 0);
+      setToast(`Logged (+${Math.round(addedCal)} kcal)`);
+      setTimeout(() => setToast(null), 2500);
+
       const newTotals = { ...totals };
       items.forEach(m => { newTotals.cal += m.cal; newTotals.protein += m.protein; newTotals.carbs += m.carbs; newTotals.fat += m.fat; });
 
@@ -122,106 +138,54 @@ useEffect(() => {
     setParsing(false);
   };
 
-  const handleDelete = async (entry) => {
-    if (!user || !entry.id) return;
-    try {
-      await deleteDoc(doc(db, "users", user.uid, "food_logs", entry.id));
-    } catch (e) {
-      console.error("Delete failed", e);
-    }
-  };
-
-  const handleEditSave = async (entry) => {
-    if (!editText.trim() || !user || !entry.id) return;
-    setParsing(true);
-    try {
-      const token = await auth.currentUser.getIdToken();
-      const res = await fetch("/api/parse-food", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ text: editText }) });
-      const data = await res.json();
-      const items = data.items || [];
-      if (!items.length) { setParsing(false); return; }
-
-      await deleteDoc(doc(db, "users", user.uid, "food_logs", entry.id));
-      const newEntry = {
-        ...entry,
-        items,
-        cal: items.reduce((s, i) => s + (i.cal || 0), 0),
-        isoTime: new Date().toISOString(),
-      };
-      delete newEntry.id;
-      await addDoc(collection(db, "users", user.uid, "food_logs"), newEntry);
-      setEditingId(null);
-      setEditText("");
-    } catch (e) {
-      console.error("Edit failed", e);
-    }
-    setParsing(false);
-  };
-
-  const cardS = { background: T.card, borderRadius: 20, boxShadow: T.cardShadow, padding: 20, marginBottom: 16 };
+  const cardS = { background: T.card, borderRadius: 16, boxShadow: T.cardShadow, padding: 16, marginBottom: 24, border: `1px solid rgba(128,128,128,0.12)` };
   const labelS = { fontSize: 13, fontWeight: 600, letterSpacing: 0.5, color: T.textSec, display: "block", marginBottom: 10, textTransform: "uppercase" };
   const inputS = { width: "100%", background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "13px 16px", color: T.text, fontSize: 17, marginBottom: 12, boxSizing: "border-box", outline: "none" };
 
   return (
     <div style={{ paddingBottom: 80, fontFamily: "system-ui, -apple-system, sans-serif" }}>
       {showNINInfo && <NINInfo onClose={() => setShowNINInfo(false)} />}
-      {/* Character Card */}
-      <div style={{ ...cardS, display: "flex", gap: 16, alignItems: "center", marginTop: 14 }}>
-        <div style={{ flexShrink: 0 }}>
-          <HumanCharacter
-            bf={parseFloat(stats?.bf) || 20}
-            sex={stats?.sex || "male"}
-            age={parseInt(stats?.age) || 25}
-            progress={externalProgress || progress}
-            appearance={appearance || {}}
-            animate={animChar}
-          />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {stats?.targetDate && stats?.targetWeight && stats?.goal !== "maintain" ? (
-            <>
-              <div style={{ fontSize: 12, color: T.textSec }}>Goal Timeline</div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: T.text, marginTop: 2 }}>
-                {stats.goal === "cut" ? "Lose" : "Gain"} {goals.weightGap}kg in {goals.weeksToGoal} weeks
-              </div>
-              <div style={{ fontSize: 13, color: T.textSec, marginTop: 2 }}>
-                Daily {stats.goal === "cut" ? "deficit" : "surplus"}: {goals.rawDelta} kcal
-              </div>
-            </>
-          ) : (
-            <div style={{ fontSize: 12, color: T.textSec, marginTop: 4 }}>
-              Set a target date in Stats to see your timeline
-            </div>
-          )}
-          <div style={{ background: T.inputBg, borderRadius: 6, height: 8, marginTop: 12, overflow: "hidden" }}>
-            <div style={{ width: `${progress}%`, background: T.accent, height: "100%", transition: "width 0.5s ease" }} />
-          </div>
-          <div style={{ fontSize: 12, color: T.textSec, marginTop: 6 }}>{Math.round(progress)}% of daily goal</div>
-        </div>
-      </div>
+
+      {/* History calendar */}
+      <History user={user} />
 
       {/* Macros Card */}
       <div style={cardS}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
           <span style={labelS}>Today</span>
-          <span style={{ fontSize: 32, fontWeight: 700, color: T.text }}>
-            {Math.round(totals.cal)} <span style={{ fontSize: 15, color: T.textSec, fontWeight: 400 }}>/ {goals.cal} kcal</span>
+          <span style={{ fontSize: 40, fontWeight: 700, color: T.text }}>
+            {Math.round(totals.cal)} <span style={{ fontSize: 15, color: T.textSec, fontWeight: 400, opacity: 0.6 }}>/ {goals.cal} kcal</span>
           </span>
         </div>
-        <MacroBar label="PROTEIN" value={totals.protein} goal={goals.protein} color="#FF9500" />
-        <MacroBar label="CARBS" value={totals.carbs} goal={goals.carbs} color={T.accent} />
-        <MacroBar label="FAT" value={totals.fat} goal={goals.fat} color="#34C759" />
+        <MacroBar label="PROTEIN" value={totals.protein} goal={goals.protein} color="#4CAF50" />
+        <MacroBar label="CARBS" value={totals.carbs} goal={goals.carbs} color="#2196F3" />
+        <MacroBar label="FAT" value={totals.fat} goal={goals.fat} color="#FF9800" />
       </div>
 
-      {/* Food Input Card */}
+      {/* Saved Meals */}
+      <SavedMeals user={user} todayLabels={mealLog.map(e => e.label).filter(Boolean)} />
+
+      {/* Log a Meal — at the bottom */}
       <div style={cardS}>
         <span style={labelS}>Log a Meal</span>
         <input style={inputS} value={mealName} onChange={e => setMealName(e.target.value)} placeholder="Meal name (e.g. Lunch)" />
+        {/* Quick-pick meal name chips */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: -6, marginBottom: 12 }}>
+          {buildSuggestions(mealLog.map(e => e.label).filter(Boolean)).map(s => (
+            <button key={s} onClick={() => setMealName(s)} style={{
+              background: mealName === s ? T.accent : T.inputBg,
+              color: mealName === s ? "#fff" : T.textSec,
+              border: `1px solid ${mealName === s ? T.accent : T.border}`,
+              borderRadius: 20, padding: "5px 12px", fontSize: 13,
+              fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+            }}>{s}</button>
+          ))}
+        </div>
         <textarea
           style={{ ...inputS, height: 80, resize: "none" }}
           value={foodInput}
           onChange={e => setFoodInput(e.target.value)}
-          placeholder="What did you eat? (e.g. 2 eggs, 1 toast)"
+          placeholder="e.g. 2 eggs, 1 toast, chai"
         />
         <div style={{ fontSize: 12, color: T.textSec, marginBottom: 12 }}>Powered by AI · Log meals in any language</div>
         {localMsg && <div style={{ fontSize: 13, color: "#FF3B30", marginBottom: 10 }}>{localMsg}</div>}
@@ -233,110 +197,20 @@ useEffect(() => {
           {parsing ? "LOGGING..." : "LOG IT"}
         </button>
       </div>
-
-      {/* Meal Log Card */}
-      {mealLog.length > 0 && (
-        <div style={cardS}>
-          <span style={labelS}>Meal Log</span>
-          {mealLog.map((entry) => (
-            <div key={entry.id} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${T.divider}` }}>
-              {/* Meal header: name + time + action buttons */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{entry.label}</span>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: T.textSec }}>{entry.time}</span>
-                  <button onClick={() => { setEditingId(entry.id); setEditText((entry.items || []).map(it => `${it.grams}g ${it.name}`).join(", ")); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>✏️</button>
-                  <button onClick={() => handleDelete(entry)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>🗑️</button>
-                </div>
-              </div>
-
-              {editingId === entry.id ? (
-                <div style={{ background: T.inputBg, padding: 12, borderRadius: 12, marginBottom: 10 }}>
-                  <textarea style={{ ...inputS, height: 60, marginBottom: 8 }} value={editText} onChange={e => setEditText(e.target.value)} />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button style={{ flex: 1, background: T.accent, color: "#fff", border: "none", borderRadius: 8, padding: 8, fontWeight: 600 }} onClick={() => handleEditSave(entry)}>Save</button>
-                    <button style={{ flex: 1, background: T.border, color: T.textSec, border: "none", borderRadius: 8, padding: 8, fontWeight: 600 }} onClick={() => setEditingId(null)}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Individual food items */}
-                  {(entry.items || []).map((it, i) => {
-                    const itemKey = `${entry.id}-${i}`;
-                    const isOpen = expandedItem === itemKey;
-                    return (
-                      <div key={i} style={{ marginTop: 4 }}>
-                        <div
-                          onClick={() => setExpandedItem(isOpen ? null : itemKey)}
-                          style={{ display: "flex", justifyContent: "space-between", fontSize: 14, cursor: "pointer", userSelect: "none" }}
-                        >
-                          <span style={{ color: T.textSec }}>{it.grams}g {it.name}</span>
-                          <span style={{ fontWeight: 600, color: T.text }}>{Math.round(it.cal)} kcal</span>
-                        </div>
-                        {isOpen && (
-                          <div style={{ background: T.inputBg, borderRadius: 10, padding: "10px 12px", marginTop: 6, fontSize: 13 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ color: T.textSec }}>Source</span>
-                              {it.source === "NIN-verified" ? (
-                                <button
-                                  onClick={e => { e.stopPropagation(); setShowNINInfo(true); }}
-                                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 600, color: "#16a34a", fontSize: 13 }}
-                                >
-                                  NIN Certified ⓘ
-                                </button>
-                              ) : (
-                                <span style={{ fontWeight: 600, color: T.textSec }}>AI Estimated</span>
-                              )}
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ color: T.textSec }}>Calories</span>
-                              <span style={{ fontWeight: 600, color: T.text }}>{Math.round(it.cal)} kcal</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ color: T.textSec }}>Protein</span>
-                              <span style={{ fontWeight: 600, color: "#FF9500" }}>{it.protein}g</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ color: T.textSec }}>Carbs</span>
-                              <span style={{ fontWeight: 600, color: T.accent }}>{it.carbs}g</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span style={{ color: T.textSec }}>Fat</span>
-                              <span style={{ fontWeight: 600, color: "#34C759" }}>{it.fat}g</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {/* Total row with macro breakdown */}
-                  {(() => {
-                    const mealTotals = (entry.items || []).reduce((acc, it) => ({
-                      cal: acc.cal + (it.cal || 0),
-                      protein: acc.protein + (it.protein || 0),
-                      carbs: acc.carbs + (it.carbs || 0),
-                      fat: acc.fat + (it.fat || 0),
-                    }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
-                    return (
-                      <div style={{ borderTop: `1px solid ${T.divider}`, marginTop: 8, paddingTop: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
-                          <span style={{ fontWeight: 600, color: T.text }}>Total</span>
-                          <span style={{ fontWeight: 700, color: T.text }}>{Math.round(mealTotals.cal)} kcal</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, gap: 8 }}>
-                          <span style={{ color: T.textSec }}>P: <span style={{ fontWeight: 600, color: "#FF9500" }}>{Math.round(mealTotals.protein)}g</span></span>
-                          <span style={{ color: T.textSec }}>C: <span style={{ fontWeight: 600, color: T.accent }}>{Math.round(mealTotals.carbs)}g</span></span>
-                          <span style={{ color: T.textSec }}>F: <span style={{ fontWeight: 600, color: "#34C759" }}>{Math.round(mealTotals.fat)}g</span></span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
-            </div>
-          ))}
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+          background: "#1a1a1a", color: "#fff", padding: "12px 24px",
+          borderRadius: 16, fontSize: 15, fontWeight: 600,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+          animation: "slideUp 0.25s ease",
+          zIndex: 9999, whiteSpace: "nowrap",
+        }}>
+          {toast}
         </div>
       )}
+      <style>{`@keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
     </div>
   );
 }

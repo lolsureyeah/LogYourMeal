@@ -12,6 +12,8 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
 import { applyNINVerification, buildNINVectorStore } from "./ninMatcher.js";
+import { checkCommunityCache, saveToCommunityCache } from "./communityFoodsCache.js";
+import { geminiKeyedUrl, rotateGeminiKey } from "./geminiKeyRotator.js";
 
 // Load Firebase service account from file if provided, else fall back to applicationDefault
 let credential;
@@ -23,6 +25,7 @@ try {
   credential = admin.credential.applicationDefault();
 }
 admin.initializeApp({ credential });
+const adminDb = admin.firestore();
 
 function sanitiseInput(str, maxLen = 500) {
   if (typeof str !== "string") return "";
@@ -54,23 +57,28 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: ["http://localhost:5173", "https://your-firebase-app.web.app"] }));
 app.use(express.json());
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
 async function callGemini(prompt, temperature = 0.3) {
-  const res = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature }
-    })
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature }
   });
+
+  const doRequest = () => fetch(
+    geminiKeyedUrl("v1beta/models/gemini-2.5-flash:generateContent"),
+    { method: "POST", headers: { "Content-Type": "application/json" }, body }
+  );
+
+  let res = await doRequest();
+  if (res.status === 429 || res.status === 401) {
+    rotateGeminiKey();
+    res = await doRequest();
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || `Gemini ${res.status}`);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
-// â”€â”€ Food parser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Food parser -----------------------------------------------------------------
 app.post("/api/parse-food", requireAuth, async (req, res) => {
   const text = sanitiseInput(req.body.text, 500);
   if (!text) return res.status(400).json({ error: "No text provided" });
@@ -134,7 +142,45 @@ ${text}
     if (!Array.isArray(items) || items.length === 0) {
       return res.json({ items: [] });
     }
-    const verifiedItems = await applyNINVerification(items);
+
+    // Check community cache for each item before NIN verification
+    const itemsWithCacheCheck = await Promise.all(items.map(async item => {
+      const cached = await checkCommunityCache(item.name, item.grams, adminDb);
+      if (cached) {
+        return {
+          ...item,
+          cal: cached.cal,
+          protein: cached.protein,
+          carbs: cached.carbs,
+          fat: cached.fat,
+          source: "community-cached",
+        };
+      }
+      return item;
+    }));
+
+    // Only run NIN verification on items not already resolved from cache
+    const needsVerification = itemsWithCacheCheck.filter(i => i.source !== "community-cached");
+    const cachedItems = itemsWithCacheCheck.filter(i => i.source === "community-cached");
+
+    let verifiedItems;
+    if (needsVerification.length > 0) {
+      const ninVerified = await applyNINVerification(needsVerification);
+      // Fire-and-forget: save AI-estimated items to community cache
+      ninVerified.forEach(item => {
+        // Cache AI-estimated items AND low-confidence NIN matches (packaged/branded foods)
+        const shouldCache =
+          item.source === "AI-estimated" ||
+          (item.source === "NIN-verified" && (item.ninMatchScore ?? 100) < 90);
+        if (shouldCache) {
+          saveToCommunityCache({ ...item, source: "AI-estimated" }, req.uid, adminDb);
+        }
+      });
+      verifiedItems = [...cachedItems, ...ninVerified];
+    } else {
+      verifiedItems = cachedItems;
+    }
+
     res.json({ items: verifiedItems });
   } catch (err) {
     console.error("parse-food error:", err.message);
@@ -142,7 +188,7 @@ ${text}
   }
 });
 
-// â”€â”€ Coach comment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- Coach comment ---------------------------------------------------------------
 app.post("/api/coach", requireAuth, async (req, res) => {
   const { totals, goals, stats } = req.body;
   const name = sanitiseInput(stats?.name, 50);
@@ -202,7 +248,7 @@ Rules for your response:
   }
 });
 
-// â”€â”€ AI goal calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// -- AI goal calculator ----------------------------------------------------------â”€
 app.post("/api/calculate-goals", requireAuth, async (req, res) => {
   const age    = Math.min(Math.max(Number(req.body.age), 1), 120);
   const weight = Math.min(Math.max(Number(req.body.weight), 20), 500);
@@ -253,6 +299,119 @@ Return ONLY valid JSON:
   } catch (err) {
     console.error("calculate-goals failed:", err.message);
     res.status(500).json({ cal: 2000, protein: 150, carbs: 200, fat: 56, realisticWeeks: 0, isCapped: false });
+  }
+});
+
+// -- Save meal -------------------------------------------------------------------
+app.post("/api/save-meal", requireAuth, async (req, res) => {
+  const name = sanitiseInput(req.body.name, 100);
+  const foods = req.body.foods;
+
+  if (!name) return res.status(400).json({ error: "name is required" });
+  if (!Array.isArray(foods) || foods.length === 0)
+    return res.status(400).json({ error: "foods must be a non-empty array" });
+
+  const sanitisedFoods = foods.map(f => ({
+    name:    sanitiseInput(String(f.name    || ""), 100),
+    grams:   Number(f.grams)   || 0,
+    cal:     Number(f.cal)     || 0,
+    protein: Number(f.protein) || 0,
+    carbs:   Number(f.carbs)   || 0,
+    fat:     Number(f.fat)     || 0,
+    source:  sanitiseInput(String(f.source || ""), 50),
+  }));
+
+  const totalCal     = sanitisedFoods.reduce((s, f) => s + f.cal,     0);
+  const totalProtein = sanitisedFoods.reduce((s, f) => s + f.protein, 0);
+  const totalCarbs   = sanitisedFoods.reduce((s, f) => s + f.carbs,   0);
+  const totalFat     = sanitisedFoods.reduce((s, f) => s + f.fat,     0);
+
+  try {
+    const ref = await adminDb
+      .collection("users").doc(req.uid)
+      .collection("saved_meals")
+      .add({ name, foods: sanitisedFoods, totalCal, totalProtein, totalCarbs, totalFat,
+             createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    res.json({ success: true, mealId: ref.id });
+  } catch (err) {
+    console.error("save-meal error:", err.message);
+    res.status(500).json({ error: "Failed to save meal" });
+  }
+});
+
+// -- Get saved meals -------------------------------------------------------------
+app.get("/api/saved-meals", requireAuth, async (req, res) => {
+  try {
+    const snap = await adminDb
+      .collection("users").doc(req.uid)
+      .collection("saved_meals")
+      .orderBy("createdAt", "desc")
+      .get();
+    const meals = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate?.()?.toISOString() || null,
+    }));
+    res.json({ meals });
+  } catch (err) {
+    console.error("saved-meals error:", err.message);
+    res.status(500).json({ error: "Failed to fetch saved meals" });
+  }
+});
+
+// -- Update saved meal -----------------------------------------------------------
+app.put("/api/saved-meal/:mealId", requireAuth, async (req, res) => {
+  const mealId = req.params.mealId;
+  const name   = sanitiseInput(req.body.name, 100);
+  const foods  = req.body.foods;
+
+  if (!name) return res.status(400).json({ error: "name is required" });
+  if (!Array.isArray(foods) || foods.length === 0)
+    return res.status(400).json({ error: "foods must be a non-empty array" });
+
+  const sanitisedFoods = foods.map(f => ({
+    name:    sanitiseInput(String(f.name    || ""), 100),
+    grams:   Number(f.grams)   || 0,
+    cal:     Number(f.cal)     || 0,
+    protein: Number(f.protein) || 0,
+    carbs:   Number(f.carbs)   || 0,
+    fat:     Number(f.fat)     || 0,
+    source:  sanitiseInput(String(f.source || ""), 50),
+  }));
+
+  const totalCal     = sanitisedFoods.reduce((s, f) => s + f.cal,     0);
+  const totalProtein = sanitisedFoods.reduce((s, f) => s + f.protein, 0);
+  const totalCarbs   = sanitisedFoods.reduce((s, f) => s + f.carbs,   0);
+  const totalFat     = sanitisedFoods.reduce((s, f) => s + f.fat,     0);
+
+  try {
+    const ref = adminDb
+      .collection("users").doc(req.uid)
+      .collection("saved_meals").doc(mealId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: "Meal not found" });
+    await ref.update({ name, foods: sanitisedFoods, totalCal, totalProtein, totalCarbs, totalFat });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("update saved-meal error:", err.message);
+    res.status(500).json({ error: "Failed to update meal" });
+  }
+});
+
+// -- Delete saved meal -----------------------------------------------------------
+app.delete("/api/saved-meal/:mealId", requireAuth, async (req, res) => {
+  const mealId = req.params.mealId;
+  try {
+    const ref = adminDb
+      .collection("users").doc(req.uid)
+      .collection("saved_meals").doc(mealId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: "Meal not found" });
+    await ref.delete();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("delete saved-meal error:", err.message);
+    res.status(500).json({ error: "Failed to delete meal" });
   }
 });
 

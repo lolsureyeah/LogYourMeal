@@ -67,7 +67,7 @@ export default function Customize({ stats, initialAppearance, onComplete }) {
         <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: 3, color: T.accent }}>STEP 2</div>
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Customise Your Look</h1>
+            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Customise Your Avatar</h1>
           </div>
           <button onClick={toggle} style={{
             background: T.inputBg, border: "none", borderRadius: 10,
@@ -83,7 +83,7 @@ export default function Customize({ stats, initialAppearance, onComplete }) {
         <div style={{
           background: T.card, borderRadius: 20, boxShadow: T.cardShadow,
           display: "flex", justifyContent: "center", alignItems: "center",
-          gap: 24, padding: "28px 20px", marginBottom: 16,
+          gap: 12, padding: "14px 20px", marginBottom: 16,
         }}>
           <HumanCharacter bf={parseFloat(stats?.bf) || 20} sex={stats?.sex || "male"} age={parseInt(stats?.age) || 25} progress={55} appearance={appearance} />
           <div>

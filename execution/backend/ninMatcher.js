@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { geminiKeyedUrl, rotateGeminiKey } from "./geminiKeyRotator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CACHE_PATH = resolve(__dirname, "nin_vectors.json");
@@ -14,21 +15,27 @@ let ninVectorStore = [];
 let storeReady = false;
 
 async function getEmbedding(text) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.GEMINI_API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "models/text-embedding-004",
-      content: { parts: [{ text }] }
-    })
+  const body = JSON.stringify({
+    model: "models/gemini-embedding-001",
+    content: { parts: [{ text }] }
   });
+
+  const doRequest = () => fetch(
+    geminiKeyedUrl("v1beta/models/gemini-embedding-001:embedContent"),
+    { method: "POST", headers: { "Content-Type": "application/json" }, body }
+  );
+
+  let res = await doRequest();
+  if (res.status === 429 || res.status === 401) {
+    rotateGeminiKey();
+    res = await doRequest();
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || `Embed API ${res.status}`);
   return data.embedding.values;
 }
 
-function cosineSimilarity(a, b) {
+export function cosineSimilarity(a, b) {
   let dot = 0, normA = 0, normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
@@ -122,11 +129,11 @@ export async function applyNINVerification(items) {
 
       return {
         ...item,
-        cal:           Math.round(ninData.cal * factor),
-        protein:       Math.round(ninData.protein * factor * 10) / 10,
-        carbs:         Math.round(ninData.carbs * factor * 10) / 10,
-        fat:           Math.round(ninData.fat * factor * 10) / 10,
-        source:        "NIN-verified",
+        cal: Math.round(ninData.cal * factor),
+        protein: Math.round(ninData.protein * factor * 10) / 10,
+        carbs: Math.round(ninData.carbs * factor * 10) / 10,
+        fat: Math.round(ninData.fat * factor * 10) / 10,
+        source: "NIN-verified",
         ninMatchScore: Math.round(score * 100),
       };
     })

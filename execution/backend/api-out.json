@@ -6,7 +6,7 @@
         "content": {
           "parts": [
             {
-              "text": "Okay, 1 idli!\n\nWhat would you like to know or do with it? For example:\n*   Are you looking to **order** one?\n*   Are you curious about its **nutritional information**?\n*   Do you want a **recipe**?\n*   Or perhaps something else entirely?"
+              "text": "One idli! That's a classic South Indian steamed rice cake, known for being light, fluffy, and easily digestible.\n\nWhat would you like to know about it? Are you interested in:\n\n*   **Nutritional information** for one idli?\n*   **A recipe** to make idli?\n*   **Serving suggestions** (what to eat it with)?\n*   **Its cultural significance**?\n*   Something else entirely?"
             }
           ],
           "role": "model"
@@ -17,17 +17,17 @@
     ],
     "usageMetadata": {
       "promptTokenCount": 3,
-      "candidatesTokenCount": 68,
-      "totalTokenCount": 1031,
+      "candidatesTokenCount": 96,
+      "totalTokenCount": 718,
       "promptTokensDetails": [
         {
           "modality": "TEXT",
           "tokenCount": 3
         }
       ],
-      "thoughtsTokenCount": 960
+      "thoughtsTokenCount": 619
     },
     "modelVersion": "gemini-2.5-flash",
-    "responseId": "37Kuadi0AqjWjuMPyI7siQQ"
+    "responseId": "dn26aaOMFNaqjuMPiouCoQ4"
   }
 }

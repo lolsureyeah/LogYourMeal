@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git tag:*)",
+      "Bash(node --check index.js)",
+      "Bash(node --check ninMatcher.js)",
+      "Bash(npx vite:*)",
+      "Bash(timeout 15 node index.js)",
+      "Bash(curl -s -X POST http://localhost:3001/api/parse-food -H \"Content-Type: application/json\" -d '{\"\"\"\"text\"\"\"\":\"\"\"\"2 eggs\"\"\"\"}')",
+      "Bash(netstat -ano)",
+      "Read(//^GEMINI_API_KEY/**)",
+      "Bash(source .env)",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY\" -H \"Content-Type: application/json\" -d '{\"\"\"\"contents\"\"\"\":[{\"\"\"\"parts\"\"\"\":[{\"\"\"\"text\"\"\"\":\"\"\"\"Say hi\"\"\"\"}]}]}')",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=$GEMINI_API_KEY\" -H \"Content-Type: application/json\" -d '{\"\"\"\"model\"\"\"\":\"\"\"\"models/text-embedding-004\"\"\"\",\"\"\"\"content\"\"\"\":{\"\"\"\"parts\"\"\"\":[{\"\"\"\"text\"\"\"\":\"\"\"\"test\"\"\"\"}]}}')"
+    ]
+  }
+}

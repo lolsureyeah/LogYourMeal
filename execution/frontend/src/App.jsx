@@ -13,9 +13,8 @@ import Onboarding from "./components/Onboarding";
 import Customize  from "./components/Customize";
 import MacroTracker  from "./components/MacroTracker";
 import WeightTracker from "./components/WeightTracker";
-import History       from "./components/History";
 
-const TABS = ["Today", "Weight", "History"];
+const TABS = ["Today", "Weight"];
 
 export default function App() {
   const [user,       setUser]       = useState(null);
@@ -190,11 +189,11 @@ export default function App() {
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setScreen("edit_stats")}
                     style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 14px", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                    ✏️ Stats
+                    ✏️ Progress
                   </button>
                   <button onClick={() => setScreen("customize")}
                     style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 14px", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                    👕 Look
+                    👕 Avatar
                   </button>
                   <button onClick={toggle}
                     style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 12px", color: T.textSec, cursor: "pointer", fontSize: 16 }}>
@@ -241,10 +240,7 @@ export default function App() {
                 />
               </div>
               <div style={{ display: tab === "Weight" ? "block" : "none" }}>
-                <WeightTracker user={user} stats={stats} />
-              </div>
-              <div style={{ display: tab === "History" ? "block" : "none" }}>
-                <History user={user} />
+                <WeightTracker user={user} stats={stats} goals={goals} appearance={appearance} />
               </div>
             </div>
           </div>

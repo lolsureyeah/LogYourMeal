@@ -6,8 +6,9 @@ import { collection, addDoc, deleteDoc, doc, onSnapshot, orderBy, query } from "
 import { db } from "../firebase";
 import { useTheme } from "../theme";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import HumanCharacter from "./HumanCharacter";
 
-export default function WeightTracker({ user, stats }) {
+export default function WeightTracker({ user, stats, goals, appearance }) {
   const { T } = useTheme();
   const [weightLog, setWeightLog] = useState([]);
   const [entry, setEntry]   = useState({ weight: "", waist: "", chest: "", hips: "", arms: "" });
@@ -87,6 +88,37 @@ export default function WeightTracker({ user, stats }) {
 
   return (
     <>
+      {/* Character + Goal Timeline panel */}
+      <div style={{ ...card, marginTop: 14, display: "flex", gap: 16, alignItems: "center" }}>
+        <div style={{ flexShrink: 0 }}>
+          <HumanCharacter
+            bf={parseFloat(stats?.bf) || 20}
+            sex={stats?.sex || "male"}
+            age={parseInt(stats?.age) || 25}
+            progress={weightProgress}
+            appearance={appearance || {}}
+            animate={false}
+          />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 2 }}>{stats?.name || "Your Character"}</div>
+          {stats?.bf && <div style={{ fontSize: 12, color: T.textSec, marginBottom: 8 }}>{stats.bf}% body fat</div>}
+          {goals && stats?.targetDate && stats?.targetWeight && stats?.goal !== "maintain" ? (
+            <>
+              <div style={{ fontSize: 11, color: T.textSec, marginBottom: 2 }}>Goal Timeline</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 2 }}>
+                {stats.goal === "cut" ? "Lose" : "Gain"} {goals.weightGap}kg in {goals.weeksToGoal} weeks
+              </div>
+              <div style={{ fontSize: 12, color: T.textSec }}>
+                Daily {stats.goal === "cut" ? "deficit" : "surplus"}: {goals.rawDelta} kcal
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 12, color: T.textSec }}>Set a target date in Progress to see your timeline</div>
+          )}
+        </div>
+      </div>
+
       {/* Goal progress */}
       {stats?.targetWeight && (
         <div style={{ ...card, marginTop: 14 }}>
@@ -99,7 +131,16 @@ export default function WeightTracker({ user, stats }) {
           <div style={{ background: T.inputBg, borderRadius: 6, height: 10, overflow: "hidden", marginBottom: 4 }}>
             <div style={{ width: `${weightProgress}%`, background: T.accent, height: "100%", borderRadius: 6, transition: "width 1s ease" }} />
           </div>
-          <div style={{ fontSize: 13, color: T.textSec, fontVariantNumeric: "tabular-nums" }}>{weightProgress.toFixed(0)}% toward goal</div>
+          <div style={{ fontSize: 13, color: T.textSec, fontVariantNumeric: "tabular-nums" }}>
+            {(() => {
+              if (!latest) return `${weightProgress.toFixed(0)}% toward goal`;
+              const gap = Math.abs(latest - targetW);
+              if (gap < 0.05) return "Goal reached 🎉";
+              const weeks = Math.round(gap / 0.5);
+              const isBulk = targetW > latest;
+              return `${isBulk ? "↑" : "↓"} ${gap.toFixed(1)} kg to goal (~${weeks} week${weeks !== 1 ? "s" : ""})`;
+            })()}
+          </div>
         </div>
       )}
 
@@ -124,7 +165,7 @@ export default function WeightTracker({ user, stats }) {
           width: "100%", background: T.btnPrimary, border: "none", borderRadius: 14, padding: 16,
           color: T.btnPrimaryText, fontWeight: 700, fontSize: 17, cursor: "pointer",
         }} onClick={handleSave} disabled={saving}>
-          {saving ? "SAVING..." : "SAVE ENTRY"}
+          {saving ? "Saving..." : "Save Weight"}
         </button>
       </div>
 
@@ -172,6 +213,18 @@ export default function WeightTracker({ user, stats }) {
       {weightLog.length > 0 && (
         <div style={card}>
           <span style={labelS}>ALL ENTRIES</span>
+          {weightLog.length >= 2 && (() => {
+            const last10 = weightLog.slice(-10);
+            return (
+              <ResponsiveContainer width="100%" height={120} style={{ marginBottom: 16 }}>
+                <LineChart data={last10} margin={{ top: 8, right: 8, left: -32, bottom: 0 }}>
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: T.textSec }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10, fill: T.textSec }} axisLine={false} tickLine={false} />
+                  <Line type="monotone" dataKey="weight" stroke={T.accent} strokeWidth={2} dot={{ fill: T.accent, r: 3 }} activeDot={{ r: 5 }} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            );
+          })()}
           {[...weightLog].reverse().map((e) => (
             <div key={e.id || e.loggedAt} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, paddingBottom: 10, borderBottom: `1px solid ${T.divider}` }}>
               <div>
