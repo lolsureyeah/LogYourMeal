@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { collection, addDoc, doc, updateDoc, onSnapshot, query, where } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import HumanCharacter from "./HumanCharacter";
-import MacroBar from "./MacroBar";
 import NINInfo from "./NINInfo";
+import MicroEducation from "./MicroEducation";
 import History from "./History";
 import SavedMeals from "./SavedMeals";
 import { calcGoals } from "../utils/calculations";
@@ -22,7 +21,7 @@ function buildSuggestions(todayLabels) {
 }
 
 
-export default function MacroTracker({ user, stats, appearance, onCharUpdate, animChar, aiMsg, externalProgress, goals: propGoals, goalsSource }) {
+export default function MacroTracker({ user, stats, onCharUpdate, goals: propGoals }) {
   const { T } = useTheme();
   const [meals, setMeals] = useState([]);
   const [mealLog, setMealLog] = useState([]);
@@ -32,6 +31,7 @@ export default function MacroTracker({ user, stats, appearance, onCharUpdate, an
   const [localMsg, setLocalMsg] = useState("");
   const [showNINInfo, setShowNINInfo] = useState(false);
   const [toast, setToast] = useState(null);
+  const [showEdu, setShowEdu] = useState(false);
 
   const goals = propGoals || calcGoals(stats);
 
@@ -43,8 +43,6 @@ export default function MacroTracker({ user, stats, appearance, onCharUpdate, an
   }), { cal: 0, protein: 0, carbs: 0, fat: 0 });
 
   Object.keys(totals).forEach(k => totals[k] = +totals[k].toFixed(1));
-
-  const progress = Math.min(100, (totals.cal / goals.cal) * 100);
 useEffect(() => {
     if (!user) return;
     const now = new Date();
@@ -125,6 +123,11 @@ useEffect(() => {
       setToast(`Logged (+${Math.round(addedCal)} kcal)`);
       setTimeout(() => setToast(null), 2500);
 
+      // One-time micro-education moment
+      if (!localStorage.getItem("khaaya-edu-shown")) {
+        setTimeout(() => setShowEdu(true), 800);
+      }
+
       const newTotals = { ...totals };
       items.forEach(m => { newTotals.cal += m.cal; newTotals.protein += m.protein; newTotals.carbs += m.carbs; newTotals.fat += m.fat; });
 
@@ -145,22 +148,17 @@ useEffect(() => {
   return (
     <div style={{ paddingBottom: 80, fontFamily: "system-ui, -apple-system, sans-serif" }}>
       {showNINInfo && <NINInfo onClose={() => setShowNINInfo(false)} />}
+      {showEdu && (
+        <MicroEducation
+          onDismiss={() => {
+            setShowEdu(false);
+            localStorage.setItem("khaaya-edu-shown", "1");
+          }}
+        />
+      )}
 
-      {/* History calendar */}
-      <History user={user} />
-
-      {/* Macros Card */}
-      <div style={cardS}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
-          <span style={labelS}>Today</span>
-          <span style={{ fontSize: 40, fontWeight: 700, color: T.text }}>
-            {Math.round(totals.cal)} <span style={{ fontSize: 15, color: T.textSec, fontWeight: 400, opacity: 0.6 }}>/ {goals.cal} kcal</span>
-          </span>
-        </div>
-        <MacroBar label="PROTEIN" value={totals.protein} goal={goals.protein} color="#4CAF50" />
-        <MacroBar label="CARBS" value={totals.carbs} goal={goals.carbs} color="#2196F3" />
-        <MacroBar label="FAT" value={totals.fat} goal={goals.fat} color="#FF9800" />
-      </div>
+      {/* History calendar + stats slot + meals */}
+      <History user={user} goals={goals} />
 
       {/* Saved Meals */}
       <SavedMeals user={user} todayLabels={mealLog.map(e => e.label).filter(Boolean)} />
@@ -201,7 +199,7 @@ useEffect(() => {
       {toast && (
         <div style={{
           position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
-          background: "#1a1a1a", color: "#fff", padding: "12px 24px",
+          background: T.card, color: T.text, padding: "12px 24px", border: `1px solid ${T.border}`,
           borderRadius: 16, fontSize: 15, fontWeight: 600,
           boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
           animation: "slideUp 0.25s ease",

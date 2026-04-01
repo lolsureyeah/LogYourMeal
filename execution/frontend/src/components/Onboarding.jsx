@@ -7,7 +7,7 @@ const MACRO_MULT    = { customProtein: 4, customCarbs: 4, customFat: 9 };
 const MACRO_LABEL   = { customProtein: "Protein (g)", customCarbs: "Carbs (g)", customFat: "Fat (g)" };
 const MACRO_LIVEKEY = { customProtein: "protein",     customCarbs: "carbs",     customFat: "fat" };
 
-export default function Onboarding({ initialStats, onComplete }) {
+export default function Onboarding({ initialStats, onComplete, onCancel }) {
   const { T } = useTheme();
   const [stats, setStats] = useState(initialStats || {
     name: "", age: "", weight: "", height: "",
@@ -23,6 +23,22 @@ export default function Onboarding({ initialStats, onComplete }) {
   const [lockedMacro, setLockedMacro] = useState("customFat");
   // useCalDefault: true = use AI-estimated calories, false = enter custom calories
   const [useCalDefault, setUseCalDefault] = useState(!(initialStats?.customCal));
+  const [weightUnit, setWeightUnit] = useState("kg");   // "kg" | "lbs"
+  const [heightUnit, setHeightUnit] = useState("cm");   // "cm" | "ft"
+
+  // Weight display helpers (internal storage always kg)
+  const kgToLbs = (v) => v ? +(parseFloat(v) * 2.20462).toFixed(1) : "";
+  const lbsToKg = (v) => { const n = parseFloat(v); return isNaN(n) ? "" : String(+(n / 2.20462).toFixed(2)); };
+  const weightDisp   = weightUnit === "lbs" && stats.weight ? String(kgToLbs(stats.weight)) : stats.weight;
+  const targetWDisp  = weightUnit === "lbs" && stats.targetWeight ? String(kgToLbs(stats.targetWeight)) : stats.targetWeight;
+
+  // Height display helpers (internal storage always cm)
+  const cmToFtIn = (cm) => {
+    const totalIn = parseFloat(cm) / 2.54;
+    return { ft: Math.floor(totalIn / 12), in: Math.floor(totalIn % 12) };
+  };
+  const ftInToCm = (ft, inch) => String(+((parseFloat(ft)||0) * 12 * 2.54 + (parseFloat(inch)||0) * 2.54).toFixed(1));
+  const heightFtIn = stats.height ? cmToFtIn(stats.height) : { ft: "", in: "" };
 
   const set = (k, v) => setStats(s => ({ ...s, [k]: v }));
 
@@ -90,8 +106,8 @@ export default function Onboarding({ initialStats, onComplete }) {
 
   // ── Other existing state ─────────────────────────────────────────────────────
   const bfHint = stats.sex === "female"
-    ? "Female ranges: Essential 10–13% · Athlete 14–20% · Fitness 21–24% · Average 25–31% · Overweight 32–37% · Obese 38%+"
-    : "Male ranges: Essential 2–5% · Athlete 6–13% · Fitness 14–17% · Average 18–24% · Overweight 25–29% · Obese 30%+";
+    ? "Female ranges: Essential 10 13% · Athlete 14 20% · Fitness 21 24% · Average 25 31% · Overweight 32 37% · Obese 38%+"
+    : "Male ranges: Essential 2 5% · Athlete 6 13% · Fitness 14 17% · Average 18 24% · Overweight 25 29% · Obese 30%+";
 
   const weeksAway = stats.targetDate
     ? Math.round((new Date(stats.targetDate) - new Date()) / (7 * 24 * 60 * 60 * 1000))
@@ -124,9 +140,14 @@ export default function Onboarding({ initialStats, onComplete }) {
     <div style={S.page}>
       <div style={S.card}>
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: 3, color: T.accent, marginBottom: 8 }}>LOGYOURMEAL</div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>Build Your Character</h1>
-          <p style={{ color: T.textSec, fontSize: 15, marginTop: 8, lineHeight: 1.5 }}>Your stats shape your character's body and calculate personalised macros.</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: T.accent, marginBottom: 8, textTransform: "uppercase" }}>Khaaya</div>
+            {onCancel && (
+              <button onClick={onCancel} style={{ background: T.inputBg, border: "none", borderRadius: 10, width: 36, height: 36, color: T.textSec, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
+            )}
+          </div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>{initialStats ? "Your Stats" : "Get Started"}</h1>
+          <p style={{ color: T.textSec, fontSize: 15, marginTop: 8, lineHeight: 1.5 }}>Your stats are used to calculate personalised calories and macros.</p>
         </div>
 
         <label style={S.label}>Name</label>
@@ -137,12 +158,33 @@ export default function Onboarding({ initialStats, onComplete }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
-            <label style={S.label}>Weight (kg)</label>
-            <input style={S.input} type="number" value={stats.weight} onChange={e => set("weight", e.target.value)} placeholder="72" />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label style={{ ...S.label, marginBottom: 0 }}>Weight ({weightUnit})</label>
+              <div style={{ display: "flex", background: T.inputBg, borderRadius: 6, padding: 2, gap: 2 }}>
+                {["kg", "lbs"].map(u => (
+                  <button key={u} type="button" onClick={() => setWeightUnit(u)} style={{ padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, background: weightUnit === u ? T.accent : "transparent", color: weightUnit === u ? "#fff" : T.textSec }}>{u}</button>
+                ))}
+              </div>
+            </div>
+            <input style={S.input} type="number" step="0.1" value={weightDisp} onChange={e => set("weight", weightUnit === "lbs" ? lbsToKg(e.target.value) : e.target.value)} placeholder={weightUnit === "lbs" ? "159" : "72"} />
           </div>
           <div>
-            <label style={S.label}>Height (cm)</label>
-            <input style={S.input} type="number" value={stats.height} onChange={e => set("height", e.target.value)} placeholder="175" />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label style={{ ...S.label, marginBottom: 0 }}>Height ({heightUnit})</label>
+              <div style={{ display: "flex", background: T.inputBg, borderRadius: 6, padding: 2, gap: 2 }}>
+                {["cm", "ft"].map(u => (
+                  <button key={u} type="button" onClick={() => setHeightUnit(u)} style={{ padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, background: heightUnit === u ? T.accent : "transparent", color: heightUnit === u ? "#fff" : T.textSec }}>{u}</button>
+                ))}
+              </div>
+            </div>
+            {heightUnit === "cm" ? (
+              <input style={S.input} type="number" value={stats.height} onChange={e => set("height", e.target.value)} placeholder="175" />
+            ) : (
+              <div style={{ display: "flex", gap: 6 }}>
+                <input style={{ ...S.input, width: "50%" }} type="number" value={heightFtIn.ft} onChange={e => set("height", ftInToCm(e.target.value, heightFtIn.in))} placeholder="5" />
+                <input style={{ ...S.input, width: "50%" }} type="number" value={heightFtIn.in} onChange={e => set("height", ftInToCm(heightFtIn.ft, e.target.value))} placeholder="9" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -163,8 +205,8 @@ export default function Onboarding({ initialStats, onComplete }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
           {[
             { v: "sedentary",   l: "Sedentary" },
-            { v: "light walk",  l: "Light (1-2x/wk)" },
-            { v: "moderate",    l: "Moderate (3-4x/wk)" },
+            { v: "light walk",  l: "Light (1 2x/wk)" },
+            { v: "moderate",    l: "Moderate (3 4x/wk)" },
             { v: "very active", l: "Active (5+x/wk)" }
           ].map(a => (
             <button key={a.v} style={S.chip(stats.activityDescription === a.v)} onClick={() => set("activityDescription", a.v)}>
@@ -180,8 +222,8 @@ export default function Onboarding({ initialStats, onComplete }) {
           ))}
         </div>
 
-        <label style={S.label}>Target Weight (kg, optional)</label>
-        <input style={S.input} type="number" value={stats.targetWeight} onChange={e => set("targetWeight", e.target.value)} placeholder="e.g. 68" />
+        <label style={S.label}>Target Weight ({weightUnit}, optional)</label>
+        <input style={S.input} type="number" step="0.1" value={targetWDisp} onChange={e => set("targetWeight", weightUnit === "lbs" ? lbsToKg(e.target.value) : e.target.value)} placeholder={weightUnit === "lbs" ? "e.g. 150" : "e.g. 68"} />
 
         <label style={{ ...S.label, opacity: stats.goal === "maintain" ? 0.5 : 1 }}>Goal Date (optional)</label>
         <input
@@ -227,7 +269,7 @@ export default function Onboarding({ initialStats, onComplete }) {
             </div>
           </div>
           <div style={{ fontSize: 13, color: T.textSec, marginBottom: 16 }}>
-            {useCalDefault ? "Using AI-calculated calories based on your stats." : "Enter your own calorie target and macro split."}
+            {useCalDefault ? "Using AI calculated calories based on your stats." : "Enter your own calorie target and macro split."}
           </div>
 
           {/* Estimated target preview */}
@@ -269,7 +311,7 @@ export default function Onboarding({ initialStats, onComplete }) {
           {!useCalDefault && (
             <>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <span style={{ fontSize: 13, color: T.textSec, fontWeight: 500, whiteSpace: "nowrap" }}>Auto-calculate:</span>
+              <span style={{ fontSize: 13, color: T.textSec, fontWeight: 500, whiteSpace: "nowrap" }}>Auto calculate:</span>
               {MACRO_FIELDS.map(field => {
                 const label = { customProtein: "Protein", customCarbs: "Carbs", customFat: "Fat" }[field];
                 const active = field === lockedMacro;
@@ -324,7 +366,7 @@ export default function Onboarding({ initialStats, onComplete }) {
                   />
                   {isAuto ? (
                     <div style={{ fontSize: 11, color: T.textSec, marginBottom: 12 }}>
-                      Auto-calculated
+                      Auto calculated
                     </div>
                   ) : isDefaultSugg ? (
                     <div style={{ fontSize: 11, color: T.accent, marginBottom: 12 }}>
@@ -372,6 +414,7 @@ export default function Onboarding({ initialStats, onComplete }) {
             onComplete(out);
           }}
         >Save Goals</button>
+
       </div>
     </div>
   );

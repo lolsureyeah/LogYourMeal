@@ -2,30 +2,31 @@
 // Root component - handles auth state, routing between screens, Firestore reads/writes
 
 import { useState, useEffect } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut, deleteUser } from "firebase/auth";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { ThemeContext, light, dark } from "./theme";
 import { calcGoals } from "./utils/calculations";
 
-import Login      from "./components/Login";
-import Onboarding from "./components/Onboarding";
-import Customize  from "./components/Customize";
+import Login            from "./components/Login";
+import Onboarding       from "./components/Onboarding";
+import OnboardingWizard from "./components/OnboardingWizard";
+import Customize        from "./components/Customize";
 import MacroTracker  from "./components/MacroTracker";
 import WeightTracker from "./components/WeightTracker";
+import Settings      from "./components/Settings";
+import AboutKhaaya   from "./components/AboutKhaaya";
 
-const TABS = ["Today", "Weight"];
+const TABS = ["Log", "Weight"];
 
 export default function App() {
   const [user,       setUser]       = useState(null);
   const [authReady,  setAuthReady]  = useState(false);
   const [screen,     setScreen]     = useState("login"); // login | onboard | customize | app
-  const [tab,        setTab]        = useState("Today");
+  const [isNewUser,  setIsNewUser]  = useState(false);
+  const [tab,        setTab]        = useState("Log");
   const [stats,      setStats]      = useState(null);
   const [appearance, setAppearance] = useState(null);
-  const [animChar,   setAnimChar]   = useState(false);
-  const [aiMsg,      setAiMsg]      = useState("");
-  const [progress,   setProgress]   = useState(0);
   const [aiGoals,    setAiGoals]    = useState(null);
 
   // ── Theme ──────────────────────────────────────────────────────────────────
@@ -73,6 +74,10 @@ export default function App() {
       setUser(firebaseUser);
       setAuthReady(true);
       if (firebaseUser) {
+        // First-login detection: creationTime and lastSignInTime within 2 minutes
+        const created    = new Date(firebaseUser.metadata.creationTime).getTime();
+        const lastSignIn = new Date(firebaseUser.metadata.lastSignInTime).getTime();
+        setIsNewUser(Math.abs(lastSignIn - created) < 2 * 60 * 1000);
         try {
           const ref = doc(db, "users", firebaseUser.uid, "profile", "data");
           const snap = await getDoc(ref);
@@ -114,6 +119,19 @@ export default function App() {
     setScreen("customize");
   };
 
+  const handleWizardComplete = async (newStats) => {
+    setStats(newStats);
+    setAppearance(null);
+    try {
+      const ref = doc(db, "users", user.uid, "profile", "data");
+      await setDoc(ref, { stats: newStats, appearance: null });
+    } catch (err) {
+      console.error("Wizard profile save failed:", err.message);
+    }
+    fetchAiGoals(newStats);
+    setScreen("app");
+  };
+
   const handleCustomizeComplete = async (newAppearance) => {
     setAppearance(newAppearance);
     await saveProfile(stats, newAppearance);
@@ -136,12 +154,25 @@ export default function App() {
     setScreen("login");
   };
 
-  const triggerCharAnim = (msg, prog) => {
-    setAiMsg(msg);
-    setProgress(prog);
-    setAnimChar(true);
-    setTimeout(() => setAnimChar(false), 700);
+  const handleUpdateName = async (newName) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === stats?.name) return;
+    const newStats = { ...stats, name: trimmed };
+    await saveProfile(newStats, appearance);
+    setStats(newStats);
   };
+
+  const handleDeleteAccount = async () => {
+    const ref = doc(db, "users", user.uid, "profile", "data");
+    await deleteDoc(ref);
+    await deleteUser(auth.currentUser); // throws auth/requires-recent-login if session is stale
+    setStats(null);
+    setAppearance(null);
+    setAiGoals(null);
+    setScreen("login");
+  };
+
+  const triggerCharAnim = () => {};
 
   // ── Goals priority merge ──────────────────────────────────────────────────
   // Always compute local goals first so timeline fields (weightGap, weeksToGoal,
@@ -163,13 +194,19 @@ export default function App() {
   if (!authReady) return (
     <ThemeContext.Provider value={{ T, isDark, toggle }}>
       <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", color: T.accent, fontSize: 17, fontWeight: 600 }}>
-        Loading LogYourMeal...
+        Loading Khaaya...
       </div>
     </ThemeContext.Provider>
   );
 
-  if (screen === "login")   return <ThemeContext.Provider value={{ T, isDark, toggle }}><Login /></ThemeContext.Provider>;
-  if (screen === "onboard") return <ThemeContext.Provider value={{ T, isDark, toggle }}><Onboarding onComplete={handleOnboardComplete} /></ThemeContext.Provider>;
+  if (screen === "login") return <ThemeContext.Provider value={{ T, isDark, toggle }}><Login /></ThemeContext.Provider>;
+  if (screen === "onboard") return (
+    <ThemeContext.Provider value={{ T, isDark, toggle }}>
+      {isNewUser
+        ? <OnboardingWizard onComplete={handleWizardComplete} />
+        : <Onboarding onComplete={handleOnboardComplete} />}
+    </ThemeContext.Provider>
+  );
 
   // ── MAIN APP & OVERLAYS ─────────────────────────────────────────────────────
   return (
@@ -178,30 +215,28 @@ export default function App() {
         <div style={{ display: screen === "app" ? "block" : "none" }}>
           <div style={{ minHeight: "100vh", background: T.bg, color: T.text, paddingBottom: 60 }}>
             {/* Header */}
-            <div style={{ background: T.card, borderBottom: `1px solid ${T.headerBorder}`, padding: "16px 20px" }}>
+            <div style={{ background: T.card, borderBottom: `1px solid ${T.headerBorder}`, padding: "12px 20px" }}>
               <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: 3, color: T.accent }}>LogYourMeal</div>
-                  <div style={{ fontWeight: 800, fontSize: 22, color: T.text, letterSpacing: -0.5 }}>
-                    {stats?.name ? `Hey, ${stats.name}` : "LogYourMeal"}
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: T.accent }}>Khaaya</div>
+                  <div style={{ fontWeight: 800, fontSize: 20, color: T.text, letterSpacing: -0.3, lineHeight: 1.15 }}>
+                    {stats?.name ? `Hey, ${stats.name}` : "Welcome back"}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <button onClick={() => setScreen("edit_stats")}
-                    style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 14px", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                    ✏️ Progress
+                    style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "7px 12px", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+                    ✏️ Stats
                   </button>
-                  <button onClick={() => setScreen("customize")}
-                    style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 14px", color: T.accent, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                    👕 Avatar
+                  <button onClick={() => setScreen("about")}
+                    style={{ background: T.inputBg, border: "none", borderRadius: 10, width: 36, height: 36, color: T.textSec, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    title="About Khaaya">
+                    ℹ️
                   </button>
-                  <button onClick={toggle}
-                    style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 12px", color: T.textSec, cursor: "pointer", fontSize: 16 }}>
-                    {isDark ? "☀️" : "🌙"}
-                  </button>
-                  <button onClick={handleLogout}
-                    style={{ background: T.inputBg, border: "none", borderRadius: 10, padding: "8px 14px", color: T.textSec, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
-                    Sign Out
+                  <button onClick={() => setScreen("settings")}
+                    style={{ background: T.inputBg, border: "none", borderRadius: 10, width: 36, height: 36, color: T.textSec, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    title="Settings">
+                    ⚙️
                   </button>
                 </div>
               </div>
@@ -227,20 +262,16 @@ export default function App() {
             </div>
 
             <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px" }}>
-              <div style={{ display: tab === "Today" ? "block" : "none" }}>
+              <div style={{ display: tab === "Log" ? "block" : "none" }}>
                 <MacroTracker
                   user={user}
                   stats={stats}
-                  appearance={appearance}
                   onCharUpdate={triggerCharAnim}
-                  animChar={animChar}
-                  aiMsg={aiMsg}
-                  externalProgress={progress}
                   goals={goals}
                 />
               </div>
               <div style={{ display: tab === "Weight" ? "block" : "none" }}>
-                <WeightTracker user={user} stats={stats} goals={goals} appearance={appearance} />
+                <WeightTracker user={user} stats={stats} />
               </div>
             </div>
           </div>
@@ -248,7 +279,22 @@ export default function App() {
 
         {/* OVERLAYS */}
         {screen === "customize" && <Customize stats={stats} initialAppearance={appearance} onComplete={handleCustomizeComplete} />}
-        {screen === "edit_stats" && <Onboarding initialStats={stats} onComplete={handleEditStatsComplete} />}
+        {screen === "edit_stats" && <Onboarding initialStats={stats} onComplete={handleEditStatsComplete} onCancel={() => setScreen("app")} />}
+        {screen === "settings" && (
+          <Settings
+            user={user}
+            stats={stats}
+            isDark={isDark}
+            onToggleTheme={toggle}
+            onUpdateName={handleUpdateName}
+            onLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
+            onClose={() => setScreen("app")}
+          />
+        )}
+        {screen === "about" && (
+          <AboutKhaaya onClose={() => setScreen("app")} />
+        )}
       </>
     </ThemeContext.Provider>
   );

@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { useTheme } from "../theme";
-import HumanCharacter from "./HumanCharacter";
 
 const SKIN_TONES   = [{ v: "#FDDBB4", l: "Light" }, { v: "#F5C5A3", l: "Fair" }, { v: "#E8A87C", l: "Medium" }, { v: "#C68642", l: "Tan" }, { v: "#8D5524", l: "Brown" }, { v: "#4A2912", l: "Deep" }];
 const HAIR_COLORS  = [{ v: "#1a1a1a", l: "Black" }, { v: "#3D2B1F", l: "Dark Brown" }, { v: "#7B4F2E", l: "Brown" }, { v: "#C8A165", l: "Blonde" }, { v: "#B5451B", l: "Auburn" }, { v: "#e2e8f0", l: "White" }, { v: "#E63946", l: "Red" }, { v: "#6366f1", l: "Purple" }];
@@ -82,17 +81,13 @@ export default function Customize({ stats, initialAppearance, onComplete }) {
         {/* Live preview */}
         <div style={{
           background: T.card, borderRadius: 20, boxShadow: T.cardShadow,
-          display: "flex", justifyContent: "center", alignItems: "center",
-          gap: 12, padding: "14px 20px", marginBottom: 16,
+          padding: "16px 20px", marginBottom: 16,
         }}>
-          <HumanCharacter bf={parseFloat(stats?.bf) || 20} sex={stats?.sex || "male"} age={parseInt(stats?.age) || 25} progress={55} appearance={appearance} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 6 }}>{stats?.name || "Your Character"}</div>
-            <div style={{ fontSize: 15, color: T.textSec, lineHeight: 1.9 }}>
-              {stats?.weight && <div>{stats.weight} kg</div>}
-              {stats?.bf && <div>{stats.bf}% body fat</div>}
-              {stats?.goal && <div>Goal: {stats.goal}</div>}
-            </div>
+          <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 6 }}>{stats?.name || "Your Profile"}</div>
+          <div style={{ display: "flex", gap: 20, fontSize: 14, color: T.textSec }}>
+            {stats?.weight && <span>{stats.weight} kg</span>}
+            {stats?.bf && <span>{stats.bf}% BF</span>}
+            {stats?.goal && <span style={{ textTransform: "capitalize" }}>Goal: {stats.goal}</span>}
           </div>
         </div>
 

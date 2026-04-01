@@ -68,7 +68,7 @@ export default function Login() {
         {/* Title */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: 3, color: T.accent, marginBottom: 8 }}>
-            LOGYOURMEAL
+            KHAAYA
           </div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: -0.5 }}>
             {isSignUp ? "Create Account" : "Welcome Back"}

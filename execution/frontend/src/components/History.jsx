@@ -2,9 +2,10 @@
 // Calendar + rich meal log (edit/delete/expand for today, read-only for past)
 
 import { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, deleteDoc, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import NINInfo from "./NINInfo";
+import MacroBar from "./MacroBar";
 import { useTheme } from "../theme";
 
 function Toast({ msg }) {
@@ -40,7 +41,7 @@ function toDateKey(d) {
   return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
 }
 
-export default function History({ user }) {
+export default function History({ user, goals }) {
   const { T } = useTheme();
   const [mealLog,      setMealLog]      = useState([]);
   const [weightLog,    setWeightLog]    = useState([]);
@@ -71,6 +72,10 @@ export default function History({ user }) {
   };
 
   useEffect(() => {
+    setViewMonth({ year: selectedDate.getFullYear(), month: selectedDate.getMonth() });
+  }, [selectedDate]);
+
+  useEffect(() => {
     if (!user) { setLoading(false); return; }
     const mq = query(collection(db, "users", user.uid, "food_logs"),   orderBy("date", "desc"));
     const wq = query(collection(db, "users", user.uid, "weight_logs"), orderBy("loggedAt", "desc"));
@@ -81,7 +86,7 @@ export default function History({ user }) {
     }, (err) => { console.error("Meal history load failed:", err.message); setLoading(false); });
 
     const wUnsub = onSnapshot(wq, (snap) => {
-      setWeightLog(snap.docs.map(d => d.data()));
+      setWeightLog(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     }, (err) => { console.error("Weight history load failed:", err.message); setLoading(false); });
 
@@ -109,18 +114,26 @@ export default function History({ user }) {
     return list;
   }, [mealLog, selKey]);
 
-  const dayWeights = useMemo(() => weightLog.filter(e => e.loggedAt === selKey), [weightLog, selKey]);
+  const [dragIdx,     setDragIdx]     = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
 
-  const dayTotals = useMemo(() => {
-    const t = { cal: 0, protein: 0, carbs: 0, fat: 0 };
-    dayMeals.forEach(entry => {
-      (entry.items || []).forEach(item => {
-        t.cal += item.cal || 0; t.protein += item.protein || 0;
-        t.carbs += item.carbs || 0; t.fat += item.fat || 0;
-      });
-    });
-    return t;
-  }, [dayMeals]);
+  // Move item from `fromIdx` to `toIdx` by reassigning synthetic isoTimes
+  // to the full reordered list — fixes multi-position drag (not just adjacent swap)
+  const handleReorderDrop = async (fromIdx, toIdx) => {
+    if (fromIdx === toIdx || !user) return;
+    const items = [...dayMeals];
+    const [moved] = items.splice(fromIdx, 1);
+    items.splice(toIdx, 0, moved);
+    // Assign evenly-spaced times on the selected date so sort order is stable
+    const base = new Date(selKey + "T00:00:00.000Z").getTime();
+    try {
+      await Promise.all(items.map((item, i) =>
+        updateDoc(doc(db, "users", user.uid, "food_logs", item.id), {
+          isoTime: new Date(base + i * 60000).toISOString(),
+        })
+      ));
+    } catch (e) { console.error("Reorder failed", e); }
+  };
 
   const handleDelete = async (entry) => {
     if (!user || !entry.id) return;
@@ -189,6 +202,20 @@ export default function History({ user }) {
     return days;
   }, [selectedDate]);
 
+  const dayTotals = useMemo(() => {
+    const t = dayMeals.reduce((acc, e) => {
+      (e.items || []).forEach(it => {
+        acc.cal     += it.cal     || 0;
+        acc.protein += it.protein || 0;
+        acc.carbs   += it.carbs   || 0;
+        acc.fat     += it.fat     || 0;
+      });
+      return acc;
+    }, { cal: 0, protein: 0, carbs: 0, fat: 0 });
+    Object.keys(t).forEach(k => { t[k] = +t[k].toFixed(1); });
+    return t;
+  }, [dayMeals]);
+
   const card  = { background: T.card, borderRadius: 20, boxShadow: T.cardShadow, padding: 20, marginBottom: 16 };
   const labelS = { fontSize: 13, fontWeight: 600, letterSpacing: 0.5, color: T.textSec, display: "block", marginBottom: 12, textTransform: "uppercase" };
   const inputS = { width: "100%", background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "13px 16px", color: T.text, fontSize: 17, marginBottom: 12, boxSizing: "border-box", outline: "none" };
@@ -198,8 +225,6 @@ export default function History({ user }) {
       Loading history...
     </div>
   );
-
-  const selDisplay = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
     <>
@@ -346,23 +371,20 @@ export default function History({ user }) {
         )}
       </div>
 
-      {/* Weight entries */}
-      {dayWeights.length > 0 && (
-        <div style={card}>
-          <span style={labelS}>Weight Log</span>
-          {dayWeights.map((e, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${T.divider}` }}>
-              <div>
-                <div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{e.date}</div>
-                <div style={{ fontSize: 13, color: T.textSec, marginTop: 2 }}>
-                  {e.waist ? `Waist: ${e.waist}cm` : ""}{e.chest ? `  Chest: ${e.chest}cm` : ""}{e.hips ? `  Hips: ${e.hips}cm` : ""}{e.arms ? `  Arms: ${e.arms}cm` : ""}
-                </div>
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: T.accent }}>
-                {e.weight}<span style={{ fontSize: 13, color: T.textSec, fontWeight: 400 }}> kg</span>
-              </div>
-            </div>
-          ))}
+      {goals && (
+        <div style={{ ...card, padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: 0.5, color: T.textSec, textTransform: "uppercase" }}>
+              {new Date(selKey + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+            </span>
+            <span style={{ fontSize: 40, fontWeight: 700, color: T.text }}>
+              {Math.round(dayTotals.cal)}{" "}
+              <span style={{ fontSize: 15, color: T.textSec, fontWeight: 400, opacity: 0.6 }}>/ {goals.cal} kcal</span>
+            </span>
+          </div>
+          <MacroBar label="PROTEIN" value={dayTotals.protein} goal={goals.protein} color="#4CAF50" />
+          <MacroBar label="CARBS"   value={dayTotals.carbs}   goal={goals.carbs}   color="#2196F3" />
+          <MacroBar label="FAT"     value={dayTotals.fat}     goal={goals.fat}     color="#FF9800" />
         </div>
       )}
 
@@ -370,12 +392,33 @@ export default function History({ user }) {
       {dayMeals.length > 0 && (
         <div style={card}>
           <span style={labelS}>Meals</span>
-          {dayMeals.map((entry) => (
-
-            <div key={entry.id || entry.isoTime} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${T.divider}` }}>
+          {dayMeals.map((entry, idx) => (
+            <div
+              key={entry.id || entry.isoTime}
+              draggable={isToday && !!entry.id}
+              onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragIdx(idx); }}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverIdx !== idx) setDragOverIdx(idx); }}
+              onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== idx) handleReorderDrop(dragIdx, idx); setDragIdx(null); setDragOverIdx(null); }}
+              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+              style={{
+                position: "relative",
+                marginBottom: 16, paddingBottom: 16,
+                borderTop: dragOverIdx === idx && dragIdx !== null && dragIdx !== idx
+                  ? `2px solid ${T.accent}` : "2px solid transparent",
+                borderBottom: `1px solid ${T.divider}`,
+                opacity: dragIdx === idx ? 0.3 : 1,
+                transition: "opacity 0.15s, border-color 0.1s",
+                paddingTop: dragOverIdx === idx && dragIdx !== null && dragIdx !== idx ? 10 : 0,
+              }}
+            >
               {/* Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{entry.label}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {isToday && entry.id && (
+                    <span style={{ fontSize: 18, color: T.textSec, cursor: "grab", userSelect: "none", lineHeight: 1, padding: "0 2px" }}>⠿</span>
+                  )}
+                  <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{entry.label}</span>
+                </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: T.textSec }}>{entry.time}</span>
                   {isToday && entry.id && <>
@@ -487,6 +530,8 @@ export default function History({ user }) {
           )}
         </div>
       )}
+
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </>
   );
 }

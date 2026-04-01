@@ -224,8 +224,8 @@ export default function SavedMeals({ user, todayLabels = [] }) {
   if (meals.length === 0) return (
     <div style={card}>
       <span style={labelS}>Saved Meals</span>
-      <div style={{ fontSize: 14, color: T.textSec, textAlign: "center", padding: "8px 0" }}>
-        No saved meals yet. Log some food and tap "Save as Meal".
+      <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.55, padding: "4px 0 2px" }}>
+        Save meals you eat often to log faster next time.
       </div>
     </div>
   );

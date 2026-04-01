@@ -11,6 +11,7 @@ dotenv.config({ path: join(__dirname, ".env") });
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
+import rateLimit from "express-rate-limit";
 import { applyNINVerification, buildNINVectorStore } from "./ninMatcher.js";
 import { checkCommunityCache, saveToCommunityCache } from "./communityFoodsCache.js";
 import { geminiKeyedUrl, rotateGeminiKey } from "./geminiKeyRotator.js";
@@ -54,7 +55,7 @@ async function requireAuth(req, res, next) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: ["http://localhost:5173", "https://your-firebase-app.web.app"] }));
+app.use(cors({ origin: ["http://localhost:5173", "https://fuelos-ee85d.web.app"] }));
 app.use(express.json());
 
 async function callGemini(prompt, temperature = 0.3) {
@@ -77,6 +78,16 @@ async function callGemini(prompt, temperature = 0.3) {
   if (!res.ok) throw new Error(data.error?.message || `Gemini ${res.status}`);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
+
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+app.use('/api/parse-food', aiLimiter);
+app.use('/api/coach', aiLimiter);
+app.use('/api/calculate-goals', aiLimiter);
 
 // -- Food parser -----------------------------------------------------------------
 app.post("/api/parse-food", requireAuth, async (req, res) => {
