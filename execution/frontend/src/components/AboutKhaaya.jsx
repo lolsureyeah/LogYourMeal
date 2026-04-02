@@ -11,22 +11,40 @@ export default function AboutKhaaya({ onClose }) {
     {
       icon: "🇮🇳",
       title: "Not US data. Indian data.",
-      desc: "Most apps use US nutrition databases. Khaaya uses Indian data from NIN, India's official nutrition research institute.",
+      desc: "Most apps use US nutrition databases. Khaaya uses Indian government nutrition data, the most comprehensive database of Indian foods.",
     },
     {
-      icon: "🤖",
-      title: "AI Powered Logging",
-      desc: "Just type what you ate. Khaaya works out the calories and macros for you, instantly.",
+      icon: "⚡",
+      title: "Log meals instantly",
+      desc: "Type what you ate in any language. Khaaya figures out the calories and macros for you.",
     },
     {
       icon: "🎯",
       title: "Goals that fit your body",
-      desc: "Personalised calorie and macro targets based on your stats, activity level, and goal timeline.",
+      desc: "Personalised targets based on your stats, activity level, and goal timeline.",
     },
     {
       icon: "🍛",
       title: "Roti isn't bread. Dal isn't soup.",
-      desc: "Khaaya uses Indian nutrition data so what you log actually matches what you eat.",
+      desc: "Real Indian nutrition data so what you log actually matches what you eat.",
+    },
+  ];
+
+  const steps = [
+    {
+      step: "1",
+      label: "Type your meal",
+      detail: "2 eggs, roti, chai. Anything works.",
+    },
+    {
+      step: "2",
+      label: "Get instant macros",
+      detail: "Calories + protein + carbs + fat in seconds",
+    },
+    {
+      step: "3",
+      label: "Stay on track daily",
+      detail: "See your daily progress build in real time",
     },
   ];
 
@@ -43,7 +61,21 @@ export default function AboutKhaaya({ onClose }) {
       maxWidth: 480, margin: "0 auto",
       display: "flex", justifyContent: "space-between", alignItems: "center",
     },
-    body: { maxWidth: 480, margin: "0 auto", padding: "20px 16px 48px" },
+    body: { maxWidth: 480, margin: "0 auto", padding: "24px 16px 56px" },
+    sectionLabel: {
+      fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: T.textSec,
+      textTransform: "uppercase", marginBottom: 12, paddingLeft: 4,
+    },
+    card: {
+      background: T.card, borderRadius: 20, overflow: "hidden",
+      boxShadow: T.cardShadow || "0 2px 12px rgba(0,0,0,0.06)",
+      marginBottom: 36,
+    },
+    row: (i) => ({
+      display: "flex", gap: 14, padding: "18px 16px",
+      borderTop: i > 0 ? `1px solid ${T.divider}` : "none",
+      alignItems: "flex-start",
+    }),
   };
 
   return (
@@ -51,7 +83,7 @@ export default function AboutKhaaya({ onClose }) {
       {/* Header */}
       <div style={S.header}>
         <div style={S.headerInner}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: T.text, letterSpacing: -0.3 }}>
+          <div style={{ fontWeight: 600, fontSize: 16, color: T.textSec, letterSpacing: -0.2 }}>
             About Khaaya
           </div>
           <button
@@ -70,51 +102,36 @@ export default function AboutKhaaya({ onClose }) {
       <div style={S.body}>
         {/* Hero */}
         <div style={{
-          background: T.card, borderRadius: 22, padding: "32px 24px",
-          textAlign: "center", marginBottom: 24,
-          border: `1px solid ${T.border}`,
-          boxShadow: T.cardShadow,
+          background: T.card, borderRadius: 22, padding: "36px 24px",
+          textAlign: "center", marginBottom: 40,
+          boxShadow: T.cardShadow || "0 2px 16px rgba(0,0,0,0.07)",
         }}>
           <div style={{
             width: 72, height: 72, borderRadius: 20,
-            background: "linear-gradient(135deg, rgba(0,122,255,0.15), rgba(52,199,89,0.15))",
+            background: "linear-gradient(135deg, rgba(0,122,255,0.12), rgba(52,199,89,0.12))",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 36, margin: "0 auto 16px",
+            fontSize: 36, margin: "0 auto 20px",
           }}>
             🥗
           </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: T.text, letterSpacing: -0.3, marginBottom: 6 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: T.text, letterSpacing: -0.5, marginBottom: 10 }}>
             Khaaya
           </div>
-          <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.55, maxWidth: 320, margin: "0 auto" }}>
-            A nutrition tracker built for how Indians actually eat.
-            Real data, AI logging, and goals that make sense.
+          <div style={{ fontSize: 17, fontWeight: 700, color: T.text, lineHeight: 1.35, maxWidth: 280, margin: "0 auto 10px" }}>
+            Track Indian meals. Not Western guesses.
+          </div>
+          <div style={{ fontSize: 14, color: T.textSec, lineHeight: 1.6, maxWidth: 300, margin: "0 auto" }}>
+            Log meals instantly with real Indian nutrition data.
           </div>
         </div>
 
         {/* Features */}
-        <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: T.textSec,
-          textTransform: "uppercase", marginBottom: 10, paddingLeft: 4,
-        }}>
-          What makes Khaaya different
-        </div>
-
-        <div style={{
-          background: T.card, borderRadius: 18, overflow: "hidden",
-          border: `1px solid ${T.border}`, marginBottom: 24,
-        }}>
+        <div style={S.sectionLabel}>What makes Khaaya different</div>
+        <div style={S.card}>
           {features.map((f, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex", gap: 14, padding: "16px 16px",
-                borderTop: i > 0 ? `1px solid ${T.divider}` : "none",
-                alignItems: "flex-start",
-              }}
-            >
+            <div key={i} style={S.row(i)}>
               <span style={{
-                fontSize: 22, flexShrink: 0,
+                fontSize: 20, flexShrink: 0,
                 width: 40, height: 40, borderRadius: 12,
                 background: T.inputBg,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -134,30 +151,10 @@ export default function AboutKhaaya({ onClose }) {
         </div>
 
         {/* How it works */}
-        <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: T.textSec,
-          textTransform: "uppercase", marginBottom: 10, paddingLeft: 4,
-        }}>
-          How it works
-        </div>
-
-        <div style={{
-          background: T.card, borderRadius: 18, overflow: "hidden",
-          border: `1px solid ${T.border}`, marginBottom: 24,
-        }}>
-          {[
-            { step: "1", label: "Type what you ate", detail: "Hindi, English, Hinglish, or a mix. Whatever feels natural." },
-            { step: "2", label: "Get your numbers", detail: "Khaaya looks up the calories, protein, carbs, and fat using Indian nutrition data." },
-            { step: "3", label: "See your day at a glance", detail: "Watch your totals build up as you eat. Know exactly where you stand." },
-          ].map((s, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex", gap: 14, padding: "16px 16px",
-                borderTop: i > 0 ? `1px solid ${T.divider}` : "none",
-                alignItems: "flex-start",
-              }}
-            >
+        <div style={S.sectionLabel}>How it works</div>
+        <div style={S.card}>
+          {steps.map((s, i) => (
+            <div key={i} style={S.row(i)}>
               <span style={{
                 flexShrink: 0, width: 30, height: 30, borderRadius: 10,
                 background: T.accent, color: "#fff",
@@ -167,7 +164,7 @@ export default function AboutKhaaya({ onClose }) {
                 {s.step}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 4 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 3 }}>
                   {s.label}
                 </div>
                 <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.55 }}>
